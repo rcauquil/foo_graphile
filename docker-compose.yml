@@ -1,0 +1,58 @@
+version: '3.7'
+services:
+  # DATABASE
+  # ----------------------
+  foo-database:
+    image: postgres:15-alpine
+    container_name: foo-database
+    restart: unless-stopped
+    env_file:
+      - .env
+    networks:
+     - foonetwork
+    ports:
+      - "5432:5432"
+    volumes:
+      - foo-data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  foo-migrations:
+    container_name: foo-migrations
+    restart: unless-stopped
+    image: foo-migrations
+    build:
+      context: ./migrations
+    env_file:
+      - .env
+    networks:
+     - foonetwork
+    depends_on:
+      - foo-database
+    volumes:
+      - ./migrations/migrations/:/migrate/migrations
+    command: graphile-migrate watch
+
+  foo-pgadmin:
+    container_name: foo-pgadmin
+    image: dpage/pgadmin4
+    restart: unless-stopped
+    env_file:
+      - .env
+    networks:
+     - foonetwork
+    depends_on: 
+      - foo-database
+    ports:
+      - 5050:5050
+
+networks:
+ foonetwork:
+
+volumes:
+  foo-data:
+    name: foo-data
